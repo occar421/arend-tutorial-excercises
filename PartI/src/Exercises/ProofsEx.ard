@@ -1,25 +1,33 @@
 \import Proofs
-\open Nat(+,*)
+\open Nat (+, *)
 
--- 1. Prove that (P -> Q -> R) -> (P -> Q) -> P -> S
+-- 1. Prove that (P -> Q -> R) -> (P -> Q) -> P -> R
 
-\func t1 {P Q R : \Type} (r : P -> Q -> R) (q : P -> Q) (p : P) : R => {?}
+\func t1 {P Q R : \Type} (r : P -> Q -> R) (q : P -> Q) (p : P) : R => r p (q p)
 
 -- 2. Prove that ((P -> Q -> R) -> P) -> (P -> R) -> R
 
-\func t2 {P Q R : \Type} (p : (P -> Q -> R) -> P) (r : P -> R) : R => {?}
+\func t2 {P Q R : \Type} (p : (P -> Q -> R) -> P) (r : P -> R) : R => r (p (\lam x _ => r x))
 
 -- 3. Prove that (P && Q -> R) -> P -> Q -> R
 
-\func t3 {P Q R : \Type} (f : \Sigma P Q -> R) (p : P) (q : Q) : R => {?}
+\func t3 {P Q R : \Type} (f : P && Q -> R) (p : P) (q : Q) : R => f (&&-intro p q)
 
 -- 4. Formulate and prove t5 : (P -> Q -> R) -> P && Q -> R
 
+\func t4 {P Q R : \Type} (f : P -> Q -> R) (p : P && Q) : R => f (&&-elim1 p) (&&-elim2 p)
+
 -- 5. Prove that (P -> R) -> (Q -> R) -> P || Q -> R
 
-\func t4 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : P || Q) : R => {?}
+\func t5 {P Q R : \Type} (f : P -> R) (g : Q -> R) (h : P || Q) : R => ||-elim f g h
 
 -- 6. Formulate and prove t6 : (P || Q -> P && Q) -> (P -> Q) && (Q -> P)
+
+\func t6 {P Q : \Type} (f : (P || Q) -> (P && Q)) : (P -> Q) && (Q -> P) => &&-intro (pq f) (qp f) \where {
+  \func pq {P Q : \Type} (f : (P || Q) -> (P && Q)): P -> Q => \lam p => &&-elim2 (f (||-intro1 p))
+
+  \func qp {P Q : \Type} (f : (P || Q) -> (P && Q)): Q -> P => \lam q => &&-elim1 (f (||-intro2 q))
+}
 
 -- 7. Russell's paradox shows that there is no set of all sets. If such a set exists, then we can form the set `B` of sets which are not members of themselves.
 --    Then `B` belongs to itself if and only if it is not.
@@ -28,21 +36,33 @@
 --    Its proof also constructs a proposition which is true if and only if it is false.
 --    Prove that more generally the existence of any such proposition implies a contradiction.
 
-\func t7 {P : \Type} (f : P -> Not P) (g : Not P -> P) : Empty => {?}
+\func t7 {P : \Type} (f : P -> Not P) (g : Not P -> P) : Empty =>
+  \let | p : P => g (\lam p => (f p) p) \in (f p) p -- by unofficial answer
 
 -- 8. Prove that if, for every x : Nat, P x is true, then there exists x : Nat such that P x is true.
 
-\func t8 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => {?}
+\func t8 (P : Nat -> \Type) (h : \Pi (x : Nat) -> P x) : \Sigma (x : Nat) (P x) => (0, h 0) -- by unofficial answer
 
 -- 9. Prove that if there is no x : Nat such that P x holds, then P 3 is false.
 
-\func t9 (P : Nat -> \Type) (h : Not (\Sigma (x : Nat) (P x))) : Not (P 3) => {?}
+\func t9 (P : Nat -> \Type) (h : Not (\Sigma (x : Nat) (P x))) : Not (P 3) =>
+  \lam p3 => h (3, p3) -- by unofficial answer
 
 -- 10. Formulate and prove the following proposition:
 --     t10 : If, for every x : Nat, P x implies Q x, then the existence of an element x : Nat for which P x is true implies the existence of an element x : Nat for which Q x is true.
 
+\func t10 (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> P x -> Q x) (a : \Sigma (x : Nat) (P x)) : \Sigma (x : Nat) (Q x) =>
+  (a.1, f a.1 a.2) -- by unofficial answer
+
 -- 11. Formulate and prove the following proposition:
 --     t11 : If, for every x : Nat, either P x is false or Q x is false, then P 3 implies that Q 3 is false.
+
+\func t11 (P Q : Nat -> \Type) (f : \Pi (x : Nat) -> Not (P x) || Not (Q x)) : P 3 -> Not (Q 3) =>
+  \lam p3 => ||-elim (t11-1 P Q p3) (t11-2 P Q) (f 3) \where {
+  \func t11-1 (P Q : Nat -> \Type) (p3 : P 3) : Not (P 3) -> Q 3 -> Empty => \lam np3 => \lam _q3 => np3 p3
+
+  \func t11-2 (P Q : Nat -> \Type) : Not (Q 3) -> Q 3 -> Empty => \lam nq3 => \lam q3 => nq3 q3
+}
 
 -- 12. Prove associativity of `and` and `or`.
 
@@ -56,11 +76,25 @@
   | _, true => true
   | false, false => false
 
-\func and-assoc (x y z : Bool) : (x and y) and z = x and (y and z) => {?}
+\func and-assoc (x y z : Bool) : (x and y) and z = x and (y and z)
+  | true, true, true => idp
+  | true, true, false => idp
+  | true, false, _ => idp
+  | false, _, _ => idp
 
-\func or-assoc (x y z : Bool) : (x or y) or z = x or (y or z) => {?}
+\func or-assoc (x y z : Bool) : (x or y) or z = x or (y or z)
+  | false, false, false => idp
+  | false, false, true => idp
+  | false, true, true => idp
+  | false, true, false => idp
+  | true, false, false => idp
+  | true, false, true => idp
+  | true, true, false => idp
+  | true, true, true => idp
 
 -- 13. Prove that 2 * 2 equals to 4.
+
+\func square2 : 2 * 2 = 4 => idp -- by unofficial answer
 
 -- 14. Prove associativity of ++.
 
@@ -70,4 +104,10 @@
   | nil => ys
   | cons x xs => cons x (xs ++ ys)
 
-\func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) => {?}
+\func ++-assoc {A : \Type} (xs ys zs : List A) : (xs ++ ys) ++ zs = xs ++ (ys ++ zs) \elim xs
+  | nil => idp
+  | cons x xs => pmap (cons x) (++-assoc xs ys zs) -- by unofficial answer
+  \where {
+    \func pmap {A B : \Type} (f : A -> B) {a a' : A} (p : a = a') : f a = f a' => path (\lam i => f (p @ i))
+  }
+
